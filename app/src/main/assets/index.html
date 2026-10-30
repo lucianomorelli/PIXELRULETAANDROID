@@ -80,8 +80,7 @@
       padding: 0 16px;
       width: 100%;
       max-width: 100%;
-      white-space: nowrap;
-      overflow-wrap: normal;
+      overflow-wrap: anywhere;
       text-shadow: 
         0 4px 15px rgba(0, 0, 0, 0.95),
         0 0 25px rgba(226, 232, 240, 0.45);
@@ -1067,7 +1066,7 @@
 
   <header class="header">
     <img id="topLogo" class="top-logo-img" alt="Logo Tótem">
-    <h1 class="title" id="mainTitle" style="color: rgb(238, 0, 255); font-family: &quot;HuxleyVertical BT&quot;, sans-serif !important; font-size: clamp(36px, 7.5vw, 64px) !important;">PIXEL ROSARIO</h1>
+    <h1 class="title" id="mainTitle" style="color: rgb(238, 0, 255); font-family: &quot;HuxleyVertical BT&quot;, sans-serif !important; font-size: 118px !important;">PIXEL ROSARIO</h1>
     <p class="subtitle" id="mainSubtitle" style="font-family: &quot;Century Gothic&quot;, sans-serif !important; color: rgb(255, 255, 255); font-size: 23px !important;">RULETA DIGITAL PARA EVENTOS!</p>
   </header>
 
@@ -1103,7 +1102,7 @@
   <div class="pin-modal" id="pinModal">
     <div class="pin-box">
       <h3 style="color:#f1f5f9; margin-bottom:12px;">Acceso Administrador</h3>
-      <p id="defaultPinHint" style="font-size:0.85rem; color:#94a3b8; margin-bottom:14px;">Ingresa el PIN de seguridad (Por defecto: 1234)</p>
+      <p id="pinHelpText" style="font-size:0.85rem; color:#94a3b8; margin-bottom:14px;">Administrador: 1234 por defecto</p>
       <input type="password" id="pinInput" maxlength="6" style="text-align:center; font-size:1.4rem; letter-spacing:4px; padding:8px; width:140px; margin-bottom:16px; border-radius:8px; border:1px solid #334155; background:#0a0c13; color:#fff;" placeholder="••••">
       <div style="display:flex; gap:10px;">
         <button id="cancelPinBtn" style="flex:1; padding:10px; border-radius:8px; border:none; background:#334155; color:#fff; cursor:pointer;">Cancelar</button>
@@ -1718,29 +1717,7 @@
 
     function sanitizeFontName(raw) {
       if (!raw) return "Century Gothic";
-      return String(raw).replace(/^[\\s"'`]+|[\\s"'`]+$/g, "").split(",")[0].trim();
-    }
-
-    // Aplica familias genéricas de Android sin comillas y nombres instalados con comillas.
-    // Esto evita que WebView interprete "serif"/"sans-serif" como nombres literales.
-    function buildFontFamily(fontName) {
-      const font = sanitizeFontName(fontName);
-      const genericFonts = new Set([
-        "serif", "sans-serif", "monospace", "cursive", "fantasy",
-        "system-ui", "ui-serif", "ui-sans-serif", "ui-monospace",
-        "sans-serif-light", "sans-serif-medium", "sans-serif-black",
-        "sans-serif-condensed", "sans-serif-smallcaps"
-      ]);
-      if (genericFonts.has(font.toLowerCase())) return font;
-      return `"${font.replace(/\\\\/g, "\\\\\\\\").replace(/"/g, '\\\\"')}", sans-serif`;
-    }
-
-    function applyMainTitleFont(fontName) {
-      const font = sanitizeFontName(fontName);
-      state.titleFont = font;
-      mainTitle.style.setProperty("font-family", buildFontFamily(font), "important");
-      // Fuerza a WebView a recalcular el estilo tras cambiar el selector.
-      void mainTitle.offsetWidth;
+      return raw.replace(/['"]/g, "").split(",")[0].trim();
     }
 
     state.titleFont = sanitizeFontName(state.titleFont || DEFAULT_CONFIG.titleFont);
@@ -1922,15 +1899,6 @@
     const openSettingsBtn = document.getElementById("openSettingsBtn");
     const pinModal = document.getElementById("pinModal");
     const pinInput = document.getElementById("pinInput");
-    const defaultPinHint = document.getElementById("defaultPinHint");
-
-    function updateDefaultPinHint() {
-      if (!defaultPinHint) return;
-      // Mostrar el aviso únicamente mientras se conserve el PIN inicial.
-      defaultPinHint.style.display = (String(state.adminPin || "1234") === "1234") ? "" : "none";
-    }
-    updateDefaultPinHint();
-
     const confirmPinBtn = document.getElementById("confirmPinBtn");
     const cancelPinBtn = document.getElementById("cancelPinBtn");
     const configModal = document.getElementById("configModal");
@@ -2030,14 +1998,12 @@
       });
     }
 
-    // En teléfonos y tablets en orientación vertical, adaptar el título
-    // al ancho real del WebView para evitar que PIXEL ROSARIO se parta
-    // en varias líneas. El tamaño guardado sigue intacto para escritorio.
+    // En teléfonos, limitar el título al ancho disponible sin cambiar
+    // el tamaño guardado ni la configuración de escritorio.
     function getResponsiveTitleFontSize() {
       const configured = Number(state.titleFontSize || DEFAULT_CONFIG.titleFontSize);
-      const viewportWidth = Math.max(240, document.documentElement.clientWidth || window.innerWidth || 240);
-      if (viewportWidth <= 900) {
-        return Math.min(configured, Math.max(18, viewportWidth * 0.075));
+      if (window.innerWidth <= 600) {
+        return Math.min(configured, Math.max(18, window.innerWidth * 0.105));
       }
       return configured;
     }
@@ -2054,7 +2020,7 @@
         document.body.style.backgroundPosition = "";
         document.body.style.backgroundRepeat = "";
       }
-      applyMainTitleFont(state.titleFont);
+      mainTitle.style.setProperty("font-family", `"${state.titleFont}", sans-serif`, "important");
       mainSubtitle.style.setProperty("font-family", `"${state.subtitleFont || state.titleFont}", sans-serif`, "important");
       winnerLabel.style.fontFamily = `"${state.wheelFont}", sans-serif`;
 
@@ -2809,7 +2775,14 @@
     });
 
     titleFontSelect.addEventListener("change", (e) => {
-      applyMainTitleFont(e.target.value);
+      const font = sanitizeFontName(e.target.value);
+      if (!font) return;
+      state.titleFont = font;
+      // Aplicar inmediatamente al título principal y mantener todos los estilos actuales.
+      mainTitle.style.setProperty("font-family", `"${font}", sans-serif`, "important");
+      // Actualizar también el estado visual general para evitar que otra actualización
+      // de la ruleta vuelva a imponer la tipografía anterior antes de guardar.
+      applyStyles();
     });
 
     subtitleFontSelect.addEventListener("change", (e) => {
@@ -2833,11 +2806,14 @@
       });
     }
 
-    const ANDROID_SYSTEM_FONTS = [
-      "Roboto", "sans-serif", "sans-serif-light", "sans-serif-medium",
-      "sans-serif-black", "sans-serif-condensed", "sans-serif-smallcaps",
-      "serif", "monospace", "cursive", "fantasy", "system-ui"
+    // Familias seguras y seleccionables en Windows, Android y WebView.
+    // Se agregan sin alterar la tipografía que ya tenga guardada el usuario.
+    const BUILTIN_TITLE_FONTS = [
+      "Arial", "Arial Black", "Verdana", "Tahoma", "Trebuchet MS",
+      "Georgia", "Times New Roman", "Courier New", "Impact",
+      "Comic Sans MS", "system-ui", "sans-serif", "serif", "monospace", "cursive", "fantasy"
     ];
+    const ANDROID_SYSTEM_FONTS = ["Roboto", "sans-serif", "sans-serif-condensed", "serif", "monospace", "cursive"];
 
     function addAndroidSystemFontOptions(selectElem) {
       if (!selectElem) return;
@@ -2874,7 +2850,22 @@
       selectElem.value = normalizedCurrent;
     }
 
-    // Añadir familias disponibles en Android; las fuentes exclusivas de Windows no existen en WebView.
+    // Agregar primero tipografías comunes para que siempre haya alternativas reales,
+    // incluso si el HTML se ejecuta dentro de Android WebView.
+    function addBuiltinFontOptions(selectElem) {
+      if (!selectElem) return;
+      BUILTIN_TITLE_FONTS.slice().reverse().forEach(family => {
+        if (!Array.from(selectElem.options).some(opt => opt.value.toLowerCase() === family.toLowerCase())) {
+          const opt = document.createElement("option");
+          opt.value = family;
+          opt.textContent = `${family}  |  AaBb 123`;
+          opt.style.fontFamily = family;
+          selectElem.insertBefore(opt, selectElem.firstChild);
+        }
+      });
+    }
+    addBuiltinFontOptions(titleFontSelect);
+    addBuiltinFontOptions(subtitleFontSelect);
     addAndroidSystemFontOptions(titleFontSelect);
     addAndroidSystemFontOptions(subtitleFontSelect);
     addAndroidSystemFontOptions(wheelFontSelect);
@@ -3105,8 +3096,13 @@
     });
 
     openSettingsBtn.addEventListener("click", () => {
-      updateDefaultPinHint();
       pinInput.value = "";
+      const pinHelpText = document.getElementById("pinHelpText");
+      if (pinHelpText) {
+        pinHelpText.textContent = (state.adminPin || "1234") === "1234"
+          ? "Administrador: 1234 por defecto"
+          : "Ingresa tu PIN de administrador";
+      }
       pinModal.classList.add("active");
       setTimeout(() => pinInput.focus(), 100);
     });
@@ -3134,6 +3130,13 @@
     }
 
     function openAdminModal() {
+      // Garantizar que la fuente guardada exista como opción, sin reemplazarla.
+      if (state.titleFont && !Array.from(titleFontSelect.options).some(o => o.value === state.titleFont)) {
+        const savedTitleFont = document.createElement("option");
+        savedTitleFont.value = state.titleFont;
+        savedTitleFont.textContent = `${state.titleFont}  |  AaBb 123`;
+        titleFontSelect.appendChild(savedTitleFont);
+      }
       titleFontSelect.value = state.titleFont;
       subtitleFontSelect.value = state.subtitleFont || state.titleFont;
       wheelFontSelect.value = state.wheelFont;
@@ -3259,7 +3262,7 @@
         chosenColor = titleColorPicker.value;
       }
 
-      applyMainTitleFont(titleFontSelect.value);
+      state.titleFont = sanitizeFontName(titleFontSelect.value);
       state.subtitleFont = sanitizeFontName(subtitleFontSelect.value || titleFontSelect.value);
       state.wheelFont = sanitizeFontName(wheelFontSelect.value);
       state.wheelFontSize = parseInt(wheelFontSizeSlider.value, 10) || 32;
@@ -3274,7 +3277,6 @@
       state.subtitle = inputSubtitle.value || DEFAULT_CONFIG.subtitle;
       state.centerText = inputCenterText.value || DEFAULT_CONFIG.centerText;
       state.adminPin = inputAdminPin.value.trim() || "1234";
-      updateDefaultPinHint();
       state.showCenterLogo = checkCenterLogo.checked;
       state.showTopLogo = checkTopLogo.checked;
       state.logoDataUrl = pendingLogoData;
