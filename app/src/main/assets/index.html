@@ -340,27 +340,34 @@
     .gesture-indicator {
       display: flex;
       align-items: center;
-      gap: 14px;
+      justify-content: center;
+      gap: 10px;
+      width: calc(100% - 40px);
+      max-width: 720px;
+      margin: 0 auto;
       background: linear-gradient(180deg, rgba(30, 36, 49, 0.92) 0%, rgba(15, 18, 25, 0.98) 100%);
       backdrop-filter: blur(14px);
-      border: 2px solid rgba(226, 232, 240, 0.65);
-      padding: clamp(14px, 2.4vh, 20px) clamp(28px, 5.5vw, 48px);
-      border-radius: 60px;
-      box-shadow: 
-        0 14px 38px rgba(0, 0, 0, 0.9),
-        inset 0 1px 2px rgba(255, 255, 255, 0.45);
+      border: 1px solid rgba(226, 232, 240, 0.52);
+      padding: clamp(10px, 1.6vh, 14px) clamp(16px, 3vw, 28px);
+      border-radius: 48px;
+      box-shadow:
+        0 10px 26px rgba(0, 0, 0, 0.78),
+        inset 0 1px 2px rgba(255, 255, 255, 0.35);
       animation: pulseAttention 2.2s infinite ease-in-out;
     }
 
     .gesture-icon {
-      font-size: clamp(1.6rem, 3.6vw, 2.3rem);
+      font-size: clamp(1.25rem, 2.8vw, 1.8rem);
+      flex: 0 0 auto;
       animation: swipeHand 1.6s infinite ease-in-out;
     }
 
     .gesture-text {
-      font-size: clamp(0.88rem, 2.1vw, 1.18rem);
+      font-size: clamp(0.76rem, 1.7vw, 0.98rem);
       font-weight: 900;
-      letter-spacing: 1.2px;
+      letter-spacing: 0.7px;
+      line-height: 1.25;
+      text-align: center;
       text-transform: uppercase;
       color: #f1f5f9;
       text-shadow: 0 3px 12px rgba(0, 0, 0, 0.9);
@@ -368,7 +375,7 @@
 
     @keyframes pulseAttention {
       0%, 100% { transform: scale(1); border-color: rgba(203, 213, 225, 0.5); }
-      50% { transform: scale(1.035); border-color: #ffffff; box-shadow: 0 14px 42px rgba(226, 232, 240, 0.4); }
+      50% { transform: scale(1.012); border-color: #ffffff; box-shadow: 0 10px 30px rgba(226, 232, 240, 0.28); }
     }
 
     @keyframes swipeHand {
@@ -696,14 +703,24 @@
     }
 
     .btn-delete-item {
-      background: #7f1d1d;
-      border: 1px solid #ef4444;
-      color: #ffffff;
-      min-width: 44px;
-      min-height: 42px;
+      background: rgba(148, 163, 184, 0.10);
+      border: 1px solid rgba(148, 163, 184, 0.30);
+      color: #cbd5e1;
+      min-width: 38px;
+      min-height: 38px;
+      width: 38px;
+      height: 38px;
+      padding: 0;
       font-size: 1.05rem;
       border-radius: 9px;
       touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn-delete-item:active {
+      background: rgba(239, 68, 68, 0.18);
+      border-color: rgba(248, 113, 113, 0.55);
+      color: #fca5a5;
+      transform: scale(0.94);
     }
 
     .item-custom-row {
@@ -946,6 +963,13 @@
     }
     .config-box button {
       -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+    #btnResetAllStocks {
+      touch-action: manipulation;
+      pointer-events: auto;
+      position: relative;
+      z-index: 2;
     }
 
 </style>
@@ -1663,6 +1687,20 @@
       }
     }
 
+    function showCustomNotice(message) {
+      const notice = document.getElementById("saveSuccessNotice");
+      if (!notice) return;
+      notice.textContent = message;
+      notice.style.setProperty("display", "block", "important");
+      notice.style.setProperty("visibility", "visible", "important");
+      notice.style.setProperty("opacity", "1", "important");
+      notice.style.setProperty("z-index", "2147483647", "important");
+      clearTimeout(notice._hideTimer);
+      notice._hideTimer = setTimeout(() => {
+        notice.style.setProperty("display", "none", "important");
+      }, 3000);
+    }
+
     function showSaveSuccessNotice() {
       const notice = document.getElementById("saveSuccessNotice");
       if (!notice) return;
@@ -1712,6 +1750,15 @@
       resetSpinsBtn.addEventListener("click", (event) => {
         event.preventDefault();
         event.stopPropagation();
+        // En la versión demo no se permite reiniciar el contador de tiradas.
+        if (licenseCheckComplete && !commercialLicenseValid) {
+          showCustomNotice("No se puede reiniciar el contador de tiradas en la versión demo.");
+          return;
+        }
+        if (!licenseCheckComplete) {
+          showCustomNotice("Esperá a que termine la verificación de la licencia.");
+          return;
+        }
         if (!confirm("¿Querés reiniciar el contador de tiradas totales a cero?")) return;
         state.totalSpins = 0;
         updateTotalSpinsDisplay();
@@ -2849,7 +2896,7 @@
           <div class="item-main-row">
             <span class="item-num">#${index + 1}</span>
             <input type="text" class="item-input-text item-text-field" value="${item.text}" placeholder="Texto de la opción...">
-            <button type="button" class="btn-action-sm btn-delete-item" data-index="${index}" title="Eliminar premio" aria-label="Eliminar premio">✕</button>
+            <button type="button" class="btn-action-sm btn-delete-item" data-index="${index}" title="Eliminar premio" aria-label="Eliminar premio">🗑</button>
           </div>
           <div class="item-custom-row">
             <div class="ctrl-col">
@@ -3009,9 +3056,12 @@
     btnResetAllStocks.addEventListener("click", (event) => {
       event.preventDefault();
       event.stopPropagation();
-      if (!confirm("¿Deseas reiniciar todos los contadores de premios ganados a 0 para comenzar una nueva noche?")) return;
-      tempItemsList.forEach(item => { item.wonCount = 0; });
+
+      // Reinicia el stock de todos los premios sin depender del cuadro confirm()
+      // (que puede no responder correctamente en algunos Android WebView).
+      tempItemsList = tempItemsList.map(item => ({ ...item, wonCount: 0 }));
       state.items = tempItemsList.map(item => ({ ...item, wonCount: 0 }));
+
       saveState();
       renderItemsEditor();
       drawWheel();
