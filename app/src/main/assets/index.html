@@ -886,7 +886,24 @@
     #licenseWhatsApp { background:#16a34a; text-decoration:none; box-sizing:border-box; }
     #licenseCloseBtn { background:#334155; }
 
-  </style>
+  
+
+    /* Corrección Android: permitir desplazamiento táctil dentro de Configuración.
+       El CSS global desactiva los gestos táctiles para controlar el giro de la ruleta;
+       aquí se habilita el desplazamiento vertical sin alterar la pantalla principal. */
+    .config-box {
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior-y: contain;
+      touch-action: pan-y;
+      max-height: min(90vh, calc(100dvh - 32px));
+    }
+
+    .config-box,
+    .config-box * {
+      touch-action: pan-y;
+    }
+
+</style>
 <script id="bakedConfig" type="application/json">
 {
   "titleFont": "HuxleyVertical BT",
