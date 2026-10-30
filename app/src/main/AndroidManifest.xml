@@ -2,6 +2,8 @@
     <application
         android:allowBackup="false"
         android:label="Ruleta Pixel Rosario"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher"
         android:theme="@style/AppTheme"
         android:usesCleartextTraffic="false"
         android:hardwareAccelerated="true">
