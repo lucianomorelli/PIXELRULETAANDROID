@@ -1102,7 +1102,7 @@
   <div class="pin-modal" id="pinModal">
     <div class="pin-box">
       <h3 style="color:#f1f5f9; margin-bottom:12px;">Acceso Administrador</h3>
-      <p style="font-size:0.85rem; color:#94a3b8; margin-bottom:14px;">Ingresa el PIN de seguridad (Por defecto: 1234)</p>
+      <p id="defaultPinHint" style="font-size:0.85rem; color:#94a3b8; margin-bottom:14px;">Ingresa el PIN de seguridad (Por defecto: 1234)</p>
       <input type="password" id="pinInput" maxlength="6" style="text-align:center; font-size:1.4rem; letter-spacing:4px; padding:8px; width:140px; margin-bottom:16px; border-radius:8px; border:1px solid #334155; background:#0a0c13; color:#fff;" placeholder="••••">
       <div style="display:flex; gap:10px;">
         <button id="cancelPinBtn" style="flex:1; padding:10px; border-radius:8px; border:none; background:#334155; color:#fff; cursor:pointer;">Cancelar</button>
@@ -1717,7 +1717,29 @@
 
     function sanitizeFontName(raw) {
       if (!raw) return "Century Gothic";
-      return raw.replace(/['"]/g, "").split(",")[0].trim();
+      return String(raw).replace(/^[\\s"'`]+|[\\s"'`]+$/g, "").split(",")[0].trim();
+    }
+
+    // Aplica familias genéricas de Android sin comillas y nombres instalados con comillas.
+    // Esto evita que WebView interprete "serif"/"sans-serif" como nombres literales.
+    function buildFontFamily(fontName) {
+      const font = sanitizeFontName(fontName);
+      const genericFonts = new Set([
+        "serif", "sans-serif", "monospace", "cursive", "fantasy",
+        "system-ui", "ui-serif", "ui-sans-serif", "ui-monospace",
+        "sans-serif-light", "sans-serif-medium", "sans-serif-black",
+        "sans-serif-condensed", "sans-serif-smallcaps"
+      ]);
+      if (genericFonts.has(font.toLowerCase())) return font;
+      return `"${font.replace(/\\\\/g, "\\\\\\\\").replace(/"/g, '\\\\"')}", sans-serif`;
+    }
+
+    function applyMainTitleFont(fontName) {
+      const font = sanitizeFontName(fontName);
+      state.titleFont = font;
+      mainTitle.style.setProperty("font-family", buildFontFamily(font), "important");
+      // Fuerza a WebView a recalcular el estilo tras cambiar el selector.
+      void mainTitle.offsetWidth;
     }
 
     state.titleFont = sanitizeFontName(state.titleFont || DEFAULT_CONFIG.titleFont);
@@ -1727,6 +1749,7 @@
     state.titleFontSize = Math.min(120, Math.max(24, parseInt(state.titleFontSize, 10) || DEFAULT_CONFIG.titleFontSize));
     state.subtitleFontSize = Math.min(48, Math.max(12, parseInt(state.subtitleFontSize, 10) || DEFAULT_CONFIG.subtitleFontSize));
     state.adminPin = state.adminPin || "1234";
+    updateDefaultPinHint();
 
     let companyLogoImage = null;
     let pendingLogoData = state.logoDataUrl || null;
@@ -1899,6 +1922,14 @@
     const openSettingsBtn = document.getElementById("openSettingsBtn");
     const pinModal = document.getElementById("pinModal");
     const pinInput = document.getElementById("pinInput");
+    const defaultPinHint = document.getElementById("defaultPinHint");
+
+    function updateDefaultPinHint() {
+      if (!defaultPinHint) return;
+      // Mostrar el aviso únicamente mientras se conserve el PIN inicial.
+      defaultPinHint.style.display = (String(state.adminPin || "1234") === "1234") ? "" : "none";
+    }
+
     const confirmPinBtn = document.getElementById("confirmPinBtn");
     const cancelPinBtn = document.getElementById("cancelPinBtn");
     const configModal = document.getElementById("configModal");
@@ -2020,7 +2051,7 @@
         document.body.style.backgroundPosition = "";
         document.body.style.backgroundRepeat = "";
       }
-      mainTitle.style.setProperty("font-family", `"${state.titleFont}", sans-serif`, "important");
+      applyMainTitleFont(state.titleFont);
       mainSubtitle.style.setProperty("font-family", `"${state.subtitleFont || state.titleFont}", sans-serif`, "important");
       winnerLabel.style.fontFamily = `"${state.wheelFont}", sans-serif`;
 
@@ -2775,9 +2806,7 @@
     });
 
     titleFontSelect.addEventListener("change", (e) => {
-      const font = sanitizeFontName(e.target.value);
-      state.titleFont = font;
-      mainTitle.style.setProperty("font-family", `"${font}", sans-serif`, "important");
+      applyMainTitleFont(e.target.value);
     });
 
     subtitleFontSelect.addEventListener("change", (e) => {
@@ -2801,7 +2830,11 @@
       });
     }
 
-    const ANDROID_SYSTEM_FONTS = ["Roboto", "sans-serif", "sans-serif-condensed", "serif", "monospace", "cursive"];
+    const ANDROID_SYSTEM_FONTS = [
+      "Roboto", "sans-serif", "sans-serif-light", "sans-serif-medium",
+      "sans-serif-black", "sans-serif-condensed", "sans-serif-smallcaps",
+      "serif", "monospace", "cursive", "fantasy", "system-ui"
+    ];
 
     function addAndroidSystemFontOptions(selectElem) {
       if (!selectElem) return;
@@ -3069,6 +3102,7 @@
     });
 
     openSettingsBtn.addEventListener("click", () => {
+      updateDefaultPinHint();
       pinInput.value = "";
       pinModal.classList.add("active");
       setTimeout(() => pinInput.focus(), 100);
@@ -3222,7 +3256,7 @@
         chosenColor = titleColorPicker.value;
       }
 
-      state.titleFont = sanitizeFontName(titleFontSelect.value);
+      applyMainTitleFont(titleFontSelect.value);
       state.subtitleFont = sanitizeFontName(subtitleFontSelect.value || titleFontSelect.value);
       state.wheelFont = sanitizeFontName(wheelFontSelect.value);
       state.wheelFontSize = parseInt(wheelFontSizeSlider.value, 10) || 32;
@@ -3237,6 +3271,7 @@
       state.subtitle = inputSubtitle.value || DEFAULT_CONFIG.subtitle;
       state.centerText = inputCenterText.value || DEFAULT_CONFIG.centerText;
       state.adminPin = inputAdminPin.value.trim() || "1234";
+      updateDefaultPinHint();
       state.showCenterLogo = checkCenterLogo.checked;
       state.showTopLogo = checkTopLogo.checked;
       state.logoDataUrl = pendingLogoData;
