@@ -78,6 +78,9 @@
       line-height: 1.12;
       transition: color 0.3s ease;
       padding: 0 16px;
+      width: 100%;
+      max-width: 100%;
+      overflow-wrap: anywhere;
       text-shadow: 
         0 4px 15px rgba(0, 0, 0, 0.95),
         0 0 25px rgba(226, 232, 240, 0.45);
@@ -1876,6 +1879,16 @@
       });
     }
 
+    // En teléfonos, limitar el título al ancho disponible sin cambiar
+    // el tamaño guardado ni la configuración de escritorio.
+    function getResponsiveTitleFontSize() {
+      const configured = Number(state.titleFontSize || DEFAULT_CONFIG.titleFontSize);
+      if (window.innerWidth <= 600) {
+        return Math.min(configured, Math.max(34, window.innerWidth * 0.105));
+      }
+      return configured;
+    }
+
     function applyStyles() {
       if (state.backgroundDataUrl) {
         document.body.style.backgroundImage = `linear-gradient(rgba(5, 6, 8, 0.32), rgba(5, 6, 8, 0.48)), url("${state.backgroundDataUrl}")`;
@@ -1894,7 +1907,7 @@
 
       mainTitle.style.color = state.titleColor;
       mainSubtitle.style.color = state.subtitleColor || DEFAULT_CONFIG.subtitleColor;
-      mainTitle.style.setProperty("font-size", `${state.titleFontSize || DEFAULT_CONFIG.titleFontSize}px`, "important");
+      mainTitle.style.setProperty("font-size", `${getResponsiveTitleFontSize()}px`, "important");
       mainSubtitle.style.setProperty("font-size", `${state.subtitleFontSize || DEFAULT_CONFIG.subtitleFontSize}px`, "important");
       mainTitle.innerText = state.title;
       mainSubtitle.innerText = state.subtitle;
@@ -1906,6 +1919,10 @@
         topLogo.classList.remove("visible");
       }
     }
+
+    window.addEventListener("resize", () => {
+      if (mainTitle) mainTitle.style.setProperty("font-size", `${getResponsiveTitleFontSize()}px`, "important");
+    });
 
     function wrapTextLines(context, text, maxWidth) {
       const words = text.split(/\s+/);
@@ -2597,7 +2614,7 @@
       const size = Number(titleFontSizeSlider.value) || DEFAULT_CONFIG.titleFontSize;
       titleFontSizeBadge.innerText = `${size} px`;
       // Aplicar el tamaño inmediatamente en la vista previa, no solo al guardar.
-      mainTitle.style.setProperty("font-size", `${size}px`, "important");
+      mainTitle.style.setProperty("font-size", `${window.innerWidth <= 600 ? Math.min(size, Math.max(34, window.innerWidth * 0.105)) : size}px`, "important");
       state.titleFontSize = size;
     });
     subtitleFontSizeSlider.addEventListener("input", () => {
