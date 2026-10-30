@@ -1750,7 +1750,6 @@
     state.titleFontSize = Math.min(120, Math.max(24, parseInt(state.titleFontSize, 10) || DEFAULT_CONFIG.titleFontSize));
     state.subtitleFontSize = Math.min(48, Math.max(12, parseInt(state.subtitleFontSize, 10) || DEFAULT_CONFIG.subtitleFontSize));
     state.adminPin = state.adminPin || "1234";
-    updateDefaultPinHint();
 
     let companyLogoImage = null;
     let pendingLogoData = state.logoDataUrl || null;
@@ -1930,6 +1929,7 @@
       // Mostrar el aviso únicamente mientras se conserve el PIN inicial.
       defaultPinHint.style.display = (String(state.adminPin || "1234") === "1234") ? "" : "none";
     }
+    updateDefaultPinHint();
 
     const confirmPinBtn = document.getElementById("confirmPinBtn");
     const cancelPinBtn = document.getElementById("cancelPinBtn");
