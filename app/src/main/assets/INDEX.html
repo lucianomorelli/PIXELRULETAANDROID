@@ -1835,7 +1835,7 @@
         commercialLicenseValid = true;
         licenseCheckComplete = true;
         licenseOverlay.classList.remove("active");
-        alert("Licencia verificada y activada en este perfil de navegador.");
+        alert("¡Producto activado con éxito!");
       } else { alert("Licencia inválida o emitida para otro perfil/equipo."); }
     });
     document.getElementById("licenseCloseBtn").addEventListener("click", () => licenseOverlay.classList.remove("active"));
@@ -2849,7 +2849,7 @@
           <div class="item-main-row">
             <span class="item-num">#${index + 1}</span>
             <input type="text" class="item-input-text item-text-field" value="${item.text}" placeholder="Texto de la opción...">
-            <button type="button" class="btn-action-sm btn-delete-item" data-index="${index}" title="Eliminar premio" aria-label="Eliminar premio">🗑️</button>
+            <button type="button" class="btn-action-sm btn-delete-item" data-index="${index}" title="Eliminar premio" aria-label="Eliminar premio">✕</button>
           </div>
           <div class="item-custom-row">
             <div class="ctrl-col">
