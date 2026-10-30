@@ -80,7 +80,8 @@
       padding: 0 16px;
       width: 100%;
       max-width: 100%;
-      overflow-wrap: anywhere;
+      white-space: nowrap;
+      overflow-wrap: normal;
       text-shadow: 
         0 4px 15px rgba(0, 0, 0, 0.95),
         0 0 25px rgba(226, 232, 240, 0.45);
@@ -1066,7 +1067,7 @@
 
   <header class="header">
     <img id="topLogo" class="top-logo-img" alt="Logo Tótem">
-    <h1 class="title" id="mainTitle" style="color: rgb(238, 0, 255); font-family: &quot;HuxleyVertical BT&quot;, sans-serif !important; font-size: 118px !important;">PIXEL ROSARIO</h1>
+    <h1 class="title" id="mainTitle" style="color: rgb(238, 0, 255); font-family: &quot;HuxleyVertical BT&quot;, sans-serif !important; font-size: clamp(36px, 7.5vw, 64px) !important;">PIXEL ROSARIO</h1>
     <p class="subtitle" id="mainSubtitle" style="font-family: &quot;Century Gothic&quot;, sans-serif !important; color: rgb(255, 255, 255); font-size: 23px !important;">RULETA DIGITAL PARA EVENTOS!</p>
   </header>
 
@@ -2029,12 +2030,14 @@
       });
     }
 
-    // En teléfonos, limitar el título al ancho disponible sin cambiar
-    // el tamaño guardado ni la configuración de escritorio.
+    // En teléfonos y tablets en orientación vertical, adaptar el título
+    // al ancho real del WebView para evitar que PIXEL ROSARIO se parta
+    // en varias líneas. El tamaño guardado sigue intacto para escritorio.
     function getResponsiveTitleFontSize() {
       const configured = Number(state.titleFontSize || DEFAULT_CONFIG.titleFontSize);
-      if (window.innerWidth <= 600) {
-        return Math.min(configured, Math.max(18, window.innerWidth * 0.105));
+      const viewportWidth = Math.max(240, document.documentElement.clientWidth || window.innerWidth || 240);
+      if (viewportWidth <= 900) {
+        return Math.min(configured, Math.max(18, viewportWidth * 0.075));
       }
       return configured;
     }
