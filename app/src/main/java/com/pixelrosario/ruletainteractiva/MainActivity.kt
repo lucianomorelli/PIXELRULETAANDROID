@@ -216,6 +216,26 @@ class MainActivity : ComponentActivity() {
         }
 
         webView.webChromeClient = object : WebChromeClient() {
+            // Diálogos Android nativos: sin el encabezado "La página ... dice".
+            override fun onJsAlert(view: WebView?, url: String?, message: String?, result: android.webkit.JsResult?): Boolean {
+                android.app.AlertDialog.Builder(this@MainActivity)
+                    .setMessage(message.orEmpty())
+                    .setPositiveButton("ACEPTAR") { _, _ -> result?.confirm() }
+                    .setOnCancelListener { result?.cancel() }
+                    .show()
+                return true
+            }
+
+            override fun onJsConfirm(view: WebView?, url: String?, message: String?, result: android.webkit.JsResult?): Boolean {
+                android.app.AlertDialog.Builder(this@MainActivity)
+                    .setMessage(message.orEmpty())
+                    .setPositiveButton("ACEPTAR") { _, _ -> result?.confirm() }
+                    .setNegativeButton("CANCELAR") { _, _ -> result?.cancel() }
+                    .setOnCancelListener { result?.cancel() }
+                    .show()
+                return true
+            }
+
             override fun onShowFileChooser(
                 webView: WebView?,
                 filePathCallback: ValueCallback<Array<Uri>>?,

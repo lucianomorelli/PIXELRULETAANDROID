@@ -1757,10 +1757,10 @@
     // El reinicio de tiradas queda habilitado únicamente después de validar la licencia comercial.
     function refreshResetSpinsButton() {
       if (resetSpinsBtn) {
-        resetSpinsBtn.disabled = !licenseCheckComplete || !commercialLicenseValid;
+        resetSpinsBtn.disabled = !licenseCheckComplete;
         resetSpinsBtn.title = commercialLicenseValid
           ? "Reiniciar el contador de tiradas totales"
-          : "Disponible con licencia comercial activa";
+          : "En demo no se puede reiniciar el contador";
       }
     }
     if (resetSpinsBtn) {
@@ -1772,7 +1772,7 @@
           return;
         }
         if (!commercialLicenseValid) {
-          showCustomNotice("El reinicio del contador está disponible con licencia comercial.");
+          showCustomNotice("En la versión demo no se puede reiniciar el contador de tiradas.");
           return;
         }
         if (!confirm("¿Querés reiniciar el contador de tiradas totales a cero?")) return;
@@ -1970,7 +1970,7 @@
         refreshResetSpinsButton();
         licenseOverlay.classList.remove("active");
         alert("¡Producto activado con éxito!");
-      } else { alert("Licencia inválida o emitida para otro perfil/equipo."); }
+      } else { alert("El código de activación no es correcto para este dispositivo."); }
     });
     document.getElementById("licenseCloseBtn").addEventListener("click", () => licenseOverlay.classList.remove("active"));
 
