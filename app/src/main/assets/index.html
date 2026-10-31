@@ -2774,15 +2774,24 @@
       }
     });
 
-    titleFontSelect.addEventListener("change", (e) => {
+    titleFontSelect.addEventListener("change", async (e) => {
       const font = sanitizeFontName(e.target.value);
       if (!font) return;
+
+      // Guardar la elección y aplicarla directamente al título principal.
+      // document.fonts.load ayuda a Chromium/WebView a resolver la fuente elegida
+      // antes de volver a pintar el texto; no altera tamaño, color ni otros estilos.
       state.titleFont = font;
-      // Aplicar inmediatamente al título principal y mantener todos los estilos actuales.
-      mainTitle.style.setProperty("font-family", `"${font}", sans-serif`, "important");
-      // Actualizar también el estado visual general para evitar que otra actualización
-      // de la ruleta vuelva a imponer la tipografía anterior antes de guardar.
-      applyStyles();
+      const familyCSS = `"${font.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}", sans-serif`;
+      try {
+        if (document.fonts && document.fonts.load) {
+          await document.fonts.load(`900 48px ${familyCSS}`);
+        }
+      } catch (_) {
+        // Si el motor no puede precargarla, igualmente se aplica la familia solicitada.
+      }
+      mainTitle.style.setProperty("font-family", familyCSS, "important");
+      saveState();
     });
 
     subtitleFontSelect.addEventListener("change", (e) => {
