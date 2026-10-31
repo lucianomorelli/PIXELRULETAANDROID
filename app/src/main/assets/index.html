@@ -2732,9 +2732,9 @@
     titleFontSizeSlider.addEventListener("input", () => {
       const size = Number(titleFontSizeSlider.value) || DEFAULT_CONFIG.titleFontSize;
       titleFontSizeBadge.innerText = `${size} px`;
-      // Aplicar el tamaño inmediatamente en la vista previa, no solo al guardar.
-      mainTitle.style.setProperty("font-size", `${getResponsiveTitleFontSize()}px`, "important");
+      // Actualizar primero el estado y luego calcular el tamaño responsive.
       state.titleFontSize = size;
+      mainTitle.style.setProperty("font-size", `${getResponsiveTitleFontSize()}px`, "important");
     });
     subtitleFontSizeSlider.addEventListener("input", () => {
       const size = Number(subtitleFontSizeSlider.value) || DEFAULT_CONFIG.subtitleFontSize;
@@ -2774,23 +2774,16 @@
       }
     });
 
-    titleFontSelect.addEventListener("change", async (e) => {
+    titleFontSelect.addEventListener("change", (e) => {
       const font = sanitizeFontName(e.target.value);
       if (!font) return;
 
-      // Guardar la elección y aplicarla directamente al título principal.
-      // document.fonts.load ayuda a Chromium/WebView a resolver la fuente elegida
-      // antes de volver a pintar el texto; no altera tamaño, color ni otros estilos.
+      // Aplicar la fuente seleccionada al título principal en el acto.
+      // applyStyles utiliza el estado actualizado y conserva tamaño, color y contenido.
       state.titleFont = font;
       const familyCSS = `"${font.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}", sans-serif`;
-      try {
-        if (document.fonts && document.fonts.load) {
-          await document.fonts.load(`900 48px ${familyCSS}`);
-        }
-      } catch (_) {
-        // Si el motor no puede precargarla, igualmente se aplica la familia solicitada.
-      }
       mainTitle.style.setProperty("font-family", familyCSS, "important");
+      applyStyles();
       saveState();
     });
 
