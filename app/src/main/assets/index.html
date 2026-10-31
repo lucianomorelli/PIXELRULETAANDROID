@@ -703,6 +703,8 @@
     }
 
     .btn-delete-item {
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
       background: rgba(148, 163, 184, 0.10);
       border: 1px solid rgba(148, 163, 184, 0.30);
       color: #cbd5e1;
@@ -1772,8 +1774,17 @@
     let licenseCheckComplete = false;
 
     function __nSp() {
-      const n = Number.parseInt(localStorage.getItem(__kSp) || "0", 10);
-      return Number.isSafeInteger(n) ? Math.min(1000000000, Math.max(0, n)) : 0;
+      const local = Number.parseInt(localStorage.getItem(__kSp) || "0", 10);
+      const localSafe = Number.isSafeInteger(local) ? Math.min(1000000000, Math.max(0, local)) : 0;
+      // Android: el contador nativo queda en Descargas compartidas y puede recuperarse
+      // después de reinstalar. Si el puente no está disponible, se conserva el contador local.
+      try {
+        if (window.PixelDemoStorage) {
+          const stored = Number.parseInt(window.PixelDemoStorage.getDemoSpins(), 10);
+          if (Number.isSafeInteger(stored) && stored >= 0) return Math.min(1000000000, Math.max(localSafe, stored));
+        }
+      } catch (_) {}
+      return localSafe;
     }
     function isCommercialActivated() { return commercialLicenseValid; }
     function getMachineId() {
@@ -1865,6 +1876,10 @@
       const current = __nSp();
       if (current >= __dL) { showLicenseModal(); return false; }
       try {
+        if (window.PixelDemoStorage) {
+          const saved = window.PixelDemoStorage.setDemoSpins(String(current + 1));
+          if (!saved) { showLicenseModal(); return false; }
+        }
         localStorage.setItem(__kSp, String(current + 1));
         if (__nSp() !== current + 1) { showLicenseModal(); return false; }
       } catch (_) { showLicenseModal(); return false; }
@@ -2779,6 +2794,12 @@
       const familyCSS = `"${font.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}", sans-serif`;
       mainTitle.style.setProperty("font-family", familyCSS, "important");
       applyStyles();
+      // WebView a veces repinta el select después del evento change; reafirmar
+      // la fuente del título en el siguiente frame evita que quede la anterior.
+      requestAnimationFrame(() => {
+        mainTitle.style.setProperty("font-family", familyCSS, "important");
+        mainTitle.style.setProperty("font-size", `${getResponsiveTitleFontSize()}px`, "important");
+      });
       saveState();
     });
 
@@ -2786,7 +2807,9 @@
       const font = sanitizeFontName(e.target.value);
       if (!font) return;
       state.subtitleFont = font;
-      mainSubtitle.style.setProperty("font-family", `"${font}", sans-serif`, "important");
+      const familyCSS = `"${font.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}", sans-serif`;
+      mainSubtitle.style.setProperty("font-family", familyCSS, "important");
+      requestAnimationFrame(() => mainSubtitle.style.setProperty("font-family", familyCSS, "important"));
       saveState();
     });
 
@@ -3069,14 +3092,23 @@
         });
 
         const delBtn = card.querySelector(".btn-delete-item");
+        // Evita que un toque en Android/WebView se interprete como otra acción
+        // del panel y toma el índice actual del botón, no uno potencialmente viejo.
+        delBtn.addEventListener("pointerdown", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+        }, { passive: false });
         delBtn.addEventListener("click", (event) => {
           event.preventDefault();
           event.stopPropagation();
+          event.stopImmediatePropagation();
+          const deleteIndex = Number(delBtn.dataset.index);
+          if (!Number.isInteger(deleteIndex) || deleteIndex < 0 || deleteIndex >= tempItemsList.length) return;
           if (tempItemsList.length <= 2) {
-            alert("La ruleta debe tener al menos 2 opciones.");
+            showCustomNotice("La ruleta debe tener al menos 2 opciones.");
             return;
           }
-          tempItemsList.splice(index, 1);
+          tempItemsList.splice(deleteIndex, 1);
           renderItemsEditor();
           updateAllPercentageBadges();
         });

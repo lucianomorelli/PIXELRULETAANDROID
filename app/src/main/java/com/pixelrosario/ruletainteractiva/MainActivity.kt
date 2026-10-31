@@ -3,6 +3,11 @@ package com.pixelrosario.ruletainteractiva
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.provider.MediaStore
+import android.provider.Settings
+import android.webkit.JavascriptInterface
+import java.io.BufferedReader
+import java.io.InputStreamReader
 import android.view.View
 import android.view.WindowManager
 import android.webkit.WebResourceRequest
@@ -14,6 +19,63 @@ import androidx.webkit.WebViewAssetLoader
 
 class MainActivity : ComponentActivity() {
     private lateinit var webView: WebView
+
+    /** Registro de demo en Descargas compartidas: sobrevive a la desinstalación normal
+     * en Android 10+ (mientras el usuario no borre el archivo o restablezca el equipo).
+     */
+    inner class DemoStorageBridge {
+        private fun recordName(): String {
+            val androidId = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID) ?: "unknown"
+            val digest = java.security.MessageDigest.getInstance("SHA-256")
+                .digest(androidId.toByteArray(Charsets.UTF_8))
+                .joinToString("") { "%02x".format(it) }
+            return "pixel_ruleta_demo_$digest.dat"
+        }
+
+        @JavascriptInterface
+        fun getDemoSpins(): String {
+            if (android.os.Build.VERSION.SDK_INT < 29) return "-1"
+            return try {
+                val collection = MediaStore.Downloads.EXTERNAL_CONTENT_URI
+                contentResolver.query(
+                    collection,
+                    arrayOf(MediaStore.MediaColumns._ID),
+                    "${MediaStore.MediaColumns.DISPLAY_NAME}=? AND ${MediaStore.MediaColumns.RELATIVE_PATH}=?",
+                    arrayOf(recordName(), "Download/PixelRuleta/"),
+                    null
+                )?.use { cursor ->
+                    if (!cursor.moveToFirst()) "0" else {
+                        val id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID))
+                        val uri = android.content.ContentUris.withAppendedId(collection, id)
+                        contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText().trim() } ?: "-1"
+                    }
+                } ?: "-1"
+            } catch (_: Exception) { "-1" }
+        }
+
+        @JavascriptInterface
+        fun setDemoSpins(value: String): Boolean {
+            if (android.os.Build.VERSION.SDK_INT < 29) return false
+            val count = value.toIntOrNull()?.coerceIn(0, 1000000000) ?: return false
+            return try {
+                val collection = MediaStore.Downloads.EXTERNAL_CONTENT_URI
+                val selection = "${MediaStore.MediaColumns.DISPLAY_NAME}=? AND ${MediaStore.MediaColumns.RELATIVE_PATH}=?"
+                val args = arrayOf(recordName(), "Download/PixelRuleta/")
+                val existing = contentResolver.query(collection, arrayOf(MediaStore.MediaColumns._ID), selection, args, null)?.use { cursor ->
+                    if (cursor.moveToFirst()) android.content.ContentUris.withAppendedId(collection, cursor.getLong(0)) else null
+                }
+                val uri = existing ?: contentResolver.insert(collection, android.content.ContentValues().apply {
+                    put(MediaStore.MediaColumns.DISPLAY_NAME, recordName())
+                    put(MediaStore.MediaColumns.MIME_TYPE, "application/octet-stream")
+                    put(MediaStore.MediaColumns.RELATIVE_PATH, "Download/PixelRuleta/")
+                }) ?: return false
+                contentResolver.openOutputStream(uri, if (existing == null) "w" else "wt")?.use {
+                    it.write(count.toString().toByteArray(Charsets.UTF_8))
+                } ?: return false
+                true
+            } catch (_: Exception) { false }
+        }
+    }
 
     @Suppress("DEPRECATION")
     private fun enterKioskMode() {
@@ -33,6 +95,7 @@ class MainActivity : ComponentActivity() {
         enterKioskMode()
 
         webView = WebView(this)
+        webView.addJavascriptInterface(DemoStorageBridge(), "PixelDemoStorage")
         setContentView(webView)
 
         val assetLoader = WebViewAssetLoader.Builder()
