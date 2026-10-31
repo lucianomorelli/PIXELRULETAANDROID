@@ -1916,12 +1916,23 @@
             showCustomNotice("Para iniciar la prueba de 10 tiradas, habilitá el permiso de acceso a archivos para guardar el registro del dispositivo.");
             return;
           }
-          const storedRaw = await callDemoStorage("getDemoSpins");
-          const stored = Number.parseInt(storedRaw, 10);
-          if (!Number.isSafeInteger(stored) || stored < 0) throw new Error("No se pudo leer el registro");
-          demoSpinsCached = Math.max(demoSpinsCached, Math.min(1000000000, stored));
-          localStorage.setItem(__kSp, String(demoSpinsCached));
-          demoStorageReady = true;
+          // Una vez concedido el permiso, recuperar también la licencia compartida.
+          // En el primer arranque tras reinstalar todavía no existe localStorage,
+          // y la lectura nativa anterior puede haber devuelto vacío por falta de permiso.
+          const nativeLicense = window.PixelDemoStorage?.getStoredLicense?.() || "";
+          if (nativeLicense && await verifySignedLicense(nativeLicense)) {
+            localStorage.setItem(LICENSE_KEY, nativeLicense);
+            commercialLicenseValid = true;
+          }
+
+          if (!commercialLicenseValid) {
+            const storedRaw = await callDemoStorage("getDemoSpins");
+            const stored = Number.parseInt(storedRaw, 10);
+            if (!Number.isSafeInteger(stored) || stored < 0) throw new Error("No se pudo leer el registro");
+            demoSpinsCached = Math.max(demoSpinsCached, Math.min(1000000000, stored));
+            localStorage.setItem(__kSp, String(demoSpinsCached));
+            demoStorageReady = true;
+          }
         } catch (_) {
           licenseCheckComplete = true;
           refreshResetSpinsButton();
