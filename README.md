@@ -23,7 +23,7 @@ El APK de depuración sirve para instalar y probar. Para distribución comercial
 El HTML conserva el mecanismo actual: el identificador es del perfil WebView, no un identificador físico inviolable del teléfono/tablet. La activación quedará asociada a los datos persistentes de esta instalación/perfil. Borrar datos de la app o desinstalarla puede regenerar el identificador y requerir una nueva activación. Antes de vender esta versión, probar el flujo real de generación y activación de licencia en un dispositivo Android.
 
 
-## Protección local de las 20 tiradas demo (Android 10+)
+## Protección local de las 10 tiradas demo (Android 10+)
 
 - El WebView consulta un puente nativo Android para leer y guardar el contador demo.
 - El contador se guarda como archivo propio en `Download/PixelRuleta/`, identificado mediante un hash de `ANDROID_ID`; no se guarda el identificador original en el nombre del archivo.
