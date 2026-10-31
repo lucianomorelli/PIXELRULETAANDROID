@@ -208,21 +208,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == 7401) {
-            val callback = pendingPermissionCallback ?: return
-            pendingPermissionCallback = null
-            val granted = grantResults.isNotEmpty() && grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED
-            if (::webView.isInitialized) {
-                webView.evaluateJavascript(
-                    "window.__pixelDemoStorageResult(${org.json.JSONObject.quote(callback)}, ${org.json.JSONObject.quote(granted.toString())})",
-                    null
-                )
-            }
-        }
-    }
-
     @Suppress("DEPRECATION")
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
