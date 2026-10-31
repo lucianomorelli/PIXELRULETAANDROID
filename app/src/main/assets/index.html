@@ -2872,6 +2872,41 @@
     addAndroidSystemFontOptions(subtitleFontSelect);
     addAndroidSystemFontOptions(wheelFontSelect);
 
+    // En Android/WebView no existen las fuentes instaladas únicamente en Windows.
+    // Por eso, en la APK el selector del TÍTULO PRINCIPAL ofrece solo familias
+    // realmente disponibles en Android, evitando mostrar nombres que luego caen
+    // silenciosamente en la misma fuente de reemplazo.
+    const IS_ANDROID_DEVICE = /Android/i.test(navigator.userAgent || "");
+    if (IS_ANDROID_DEVICE && titleFontSelect) {
+      const ANDROID_TITLE_FONT_OPTIONS = [
+        { value: "Roboto", label: "Roboto (normal)" },
+        { value: "sans-serif-light", label: "Roboto Light" },
+        { value: "sans-serif-medium", label: "Roboto Medium" },
+        { value: "sans-serif-black", label: "Roboto Black" },
+        { value: "sans-serif-condensed", label: "Roboto Condensed" },
+        { value: "serif", label: "Serif (con remates)" },
+        { value: "monospace", label: "Monospace" },
+        { value: "cursive", label: "Cursiva del sistema" }
+      ];
+      const previousTitleFont = sanitizeFontName(state.titleFont);
+      titleFontSelect.innerHTML = "";
+      ANDROID_TITLE_FONT_OPTIONS.forEach(font => {
+        const option = document.createElement("option");
+        option.value = font.value;
+        option.textContent = `${font.label}  |  AaBb 123`;
+        option.style.fontFamily = font.value;
+        titleFontSelect.appendChild(option);
+      });
+      // Una fuente de Windows guardada no puede utilizarse dentro de Android.
+      // Se cambia a Roboto solo en Android; Windows conserva su configuración.
+      state.titleFont = ANDROID_TITLE_FONT_OPTIONS.some(f => f.value.toLowerCase() === previousTitleFont.toLowerCase())
+        ? previousTitleFont
+        : "Roboto";
+      titleFontSelect.value = state.titleFont;
+      btnScanWindowsFonts.innerText = "✓ Fuentes compatibles con Android";
+      saveState();
+    }
+
     // Muestra una pequeña muestra escrita con cada tipografía también en las listas iniciales.
     setFontOptionPreview(titleFontSelect);
     setFontOptionPreview(subtitleFontSelect);
