@@ -1773,19 +1773,32 @@
     let commercialLicenseValid = false;
     let licenseCheckComplete = false;
 
-    function __nSp() {
-      const local = Number.parseInt(localStorage.getItem(__kSp) || "0", 10);
-      const localSafe = Number.isSafeInteger(local) ? Math.min(1000000000, Math.max(0, local)) : 0;
-      // Android: el contador nativo queda en Descargas compartidas y puede recuperarse
-      // después de reinstalar. Si el puente no está disponible, se conserva el contador local.
-      try {
-        if (window.PixelDemoStorage) {
-          const stored = Number.parseInt(window.PixelDemoStorage.getDemoSpins(), 10);
-          if (Number.isSafeInteger(stored) && stored >= 0) return Math.min(1000000000, Math.max(localSafe, stored));
-        }
-      } catch (_) {}
-      return localSafe;
+    // El contador nativo se consulta una sola vez al iniciar. Nunca se consulta ni se
+    // escribe almacenamiento durante el gesto o el primer frame de la animación.
+    let demoSpinsCached = (() => {
+      const n = Number.parseInt(localStorage.getItem(__kSp) || "0", 10);
+      return Number.isSafeInteger(n) ? Math.min(1000000000, Math.max(0, n)) : 0;
+    })();
+    let demoStorageCallbackSeq = 0;
+    const demoStorageCallbacks = new Map();
+    window.__pixelDemoStorageResult = (id, value) => {
+      const resolve = demoStorageCallbacks.get(String(id));
+      if (!resolve) return;
+      demoStorageCallbacks.delete(String(id));
+      resolve(value);
+    };
+    function callDemoStorage(method, value) {
+      return new Promise((resolve) => {
+        if (!window.PixelDemoStorage || typeof window.PixelDemoStorage[method] !== "function") { resolve(null); return; }
+        const id = String(++demoStorageCallbackSeq);
+        demoStorageCallbacks.set(id, resolve);
+        try {
+          if (method === "getDemoSpins") window.PixelDemoStorage.getDemoSpins(id);
+          else window.PixelDemoStorage.setDemoSpins(String(value), id);
+        } catch (_) { demoStorageCallbacks.delete(id); resolve(null); }
+      });
     }
+    function __nSp() { return demoSpinsCached; }
     function isCommercialActivated() { return commercialLicenseValid; }
     function getMachineId() {
       // ID persistente del perfil/navegador, no un identificador físico infalible del PC.
@@ -1859,6 +1872,13 @@
       } catch (_) { return false; }
     }
     async function initializeLicense() {
+      // Cargar el contador persistente en segundo plano antes de habilitar la ruleta.
+      try {
+        const storedRaw = await callDemoStorage("getDemoSpins");
+        const stored = Number.parseInt(storedRaw, 10);
+        if (Number.isSafeInteger(stored) && stored >= 0) demoSpinsCached = Math.max(demoSpinsCached, Math.min(1000000000, stored));
+        localStorage.setItem(__kSp, String(demoSpinsCached));
+      } catch (_) {}
       try { commercialLicenseValid = await verifySignedLicense(localStorage.getItem(LICENSE_KEY)); }
       catch (_) { commercialLicenseValid = false; }
       licenseCheckComplete = true;
@@ -1875,14 +1895,13 @@
       if (isCommercialActivated()) return true;
       const current = __nSp();
       if (current >= __dL) { showLicenseModal(); return false; }
-      try {
-        if (window.PixelDemoStorage) {
-          const saved = window.PixelDemoStorage.setDemoSpins(String(current + 1));
-          if (!saved) { showLicenseModal(); return false; }
-        }
-        localStorage.setItem(__kSp, String(current + 1));
-        if (__nSp() !== current + 1) { showLicenseModal(); return false; }
-      } catch (_) { showLicenseModal(); return false; }
+      // Reservar la tirada en memoria/localStorage de inmediato; persistencia nativa
+      // asíncrona, sin bloquear el inicio de la animación.
+      demoSpinsCached = current + 1;
+      try { localStorage.setItem(__kSp, String(demoSpinsCached)); } catch (_) {}
+      callDemoStorage("setDemoSpins", demoSpinsCached).then((saved) => {
+        if (saved === false) console.warn("No se pudo actualizar el registro compartido de demo.");
+      });
       return true;
     }
     document.getElementById("licenseActivateBtn").addEventListener("click", async () => {

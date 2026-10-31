@@ -20,8 +20,8 @@ import androidx.webkit.WebViewAssetLoader
 class MainActivity : ComponentActivity() {
     private lateinit var webView: WebView
 
-    /** Registro de demo en Descargas compartidas: sobrevive a la desinstalación normal
-     * en Android 10+ (mientras el usuario no borre el archivo o restablezca el equipo).
+    /** Registro de demo en Descargas compartidas. Las operaciones se ejecutan fuera del hilo
+     * de animación y devuelven el resultado a JavaScript mediante callbacks.
      */
     inner class DemoStorageBridge {
         private fun recordName(): String {
@@ -32,48 +32,61 @@ class MainActivity : ComponentActivity() {
             return "pixel_ruleta_demo_$digest.dat"
         }
 
-        @JavascriptInterface
-        fun getDemoSpins(): String {
+        private fun readCount(): String {
             if (android.os.Build.VERSION.SDK_INT < 29) return "-1"
             return try {
                 val collection = MediaStore.Downloads.EXTERNAL_CONTENT_URI
-                contentResolver.query(
-                    collection,
-                    arrayOf(MediaStore.MediaColumns._ID),
-                    "${MediaStore.MediaColumns.DISPLAY_NAME}=? AND ${MediaStore.MediaColumns.RELATIVE_PATH}=?",
-                    arrayOf(recordName(), "Download/PixelRuleta/"),
-                    null
-                )?.use { cursor ->
+                val selection = "${MediaStore.MediaColumns.DISPLAY_NAME}=?"
+                contentResolver.query(collection, arrayOf(MediaStore.MediaColumns._ID), selection,
+                    arrayOf(recordName()), "${MediaStore.MediaColumns.DATE_ADDED} DESC")?.use { cursor ->
                     if (!cursor.moveToFirst()) "0" else {
-                        val id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID))
-                        val uri = android.content.ContentUris.withAppendedId(collection, id)
+                        val uri = android.content.ContentUris.withAppendedId(collection,
+                            cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID)))
                         contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText().trim() } ?: "-1"
                     }
                 } ?: "-1"
             } catch (_: Exception) { "-1" }
         }
 
-        @JavascriptInterface
-        fun setDemoSpins(value: String): Boolean {
+        private fun writeCount(value: String): Boolean {
             if (android.os.Build.VERSION.SDK_INT < 29) return false
             val count = value.toIntOrNull()?.coerceIn(0, 1000000000) ?: return false
             return try {
                 val collection = MediaStore.Downloads.EXTERNAL_CONTENT_URI
-                val selection = "${MediaStore.MediaColumns.DISPLAY_NAME}=? AND ${MediaStore.MediaColumns.RELATIVE_PATH}=?"
-                val args = arrayOf(recordName(), "Download/PixelRuleta/")
-                val existing = contentResolver.query(collection, arrayOf(MediaStore.MediaColumns._ID), selection, args, null)?.use { cursor ->
+                val selection = "${MediaStore.MediaColumns.DISPLAY_NAME}=?"
+                val args = arrayOf(recordName())
+                val existing = contentResolver.query(collection, arrayOf(MediaStore.MediaColumns._ID), selection, args,
+                    "${MediaStore.MediaColumns.DATE_ADDED} DESC")?.use { cursor ->
                     if (cursor.moveToFirst()) android.content.ContentUris.withAppendedId(collection, cursor.getLong(0)) else null
                 }
                 val uri = existing ?: contentResolver.insert(collection, android.content.ContentValues().apply {
                     put(MediaStore.MediaColumns.DISPLAY_NAME, recordName())
                     put(MediaStore.MediaColumns.MIME_TYPE, "application/octet-stream")
                     put(MediaStore.MediaColumns.RELATIVE_PATH, "Download/PixelRuleta/")
+                    put(MediaStore.MediaColumns.IS_PENDING, 0)
                 }) ?: return false
                 contentResolver.openOutputStream(uri, if (existing == null) "w" else "wt")?.use {
                     it.write(count.toString().toByteArray(Charsets.UTF_8))
+                    it.flush()
                 } ?: return false
                 true
             } catch (_: Exception) { false }
+        }
+
+        @JavascriptInterface
+        fun getDemoSpins(callbackId: String) {
+            val result = readCount()
+            runOnUiThread {
+                webView.evaluateJavascript("window.__pixelDemoStorageResult('$callbackId', ${org.json.JSONObject.quote(result)})", null)
+            }
+        }
+
+        @JavascriptInterface
+        fun setDemoSpins(value: String, callbackId: String) {
+            val ok = writeCount(value)
+            runOnUiThread {
+                webView.evaluateJavascript("window.__pixelDemoStorageResult('$callbackId', $ok)", null)
+            }
         }
     }
 
