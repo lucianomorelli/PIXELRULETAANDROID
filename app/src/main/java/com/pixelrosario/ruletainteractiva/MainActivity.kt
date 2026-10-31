@@ -20,72 +20,107 @@ import androidx.webkit.WebViewAssetLoader
 class MainActivity : ComponentActivity() {
     private lateinit var webView: WebView
 
-    /** Registro de demo en Descargas compartidas. Las operaciones se ejecutan fuera del hilo
-     * de animación y devuelven el resultado a JavaScript mediante callbacks.
+    /**
+     * Registro compartido de demo. Se guarda en Download/PixelRuleta para sobrevivir
+     * a la desinstalación. El acceso especial de Android 11+ se solicita al usuario.
+     * Las lecturas/escrituras se ejecutan en un hilo de trabajo, nunca en el hilo UI.
      */
+    private val demoIo = java.util.concurrent.Executors.newSingleThreadExecutor()
+    private var pendingPermissionCallback: String? = null
+
+    private fun hasDemoStorageAccess(): Boolean {
+        return if (android.os.Build.VERSION.SDK_INT >= 30) {
+            android.os.Environment.isExternalStorageManager()
+        } else {
+            androidx.core.content.ContextCompat.checkSelfPermission(
+                this, android.Manifest.permission.WRITE_EXTERNAL_STORAGE
+            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        }
+    }
+
     inner class DemoStorageBridge {
-        private fun recordName(): String {
-            val androidId = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID) ?: "unknown"
+        private fun recordFile(): java.io.File {
+            val androidId = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)
+                ?: throw IllegalStateException("No se pudo obtener el identificador Android")
             val digest = java.security.MessageDigest.getInstance("SHA-256")
                 .digest(androidId.toByteArray(Charsets.UTF_8))
                 .joinToString("") { "%02x".format(it) }
-            return "pixel_ruleta_demo_$digest.dat"
+            val folder = java.io.File(
+                android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS),
+                "PixelRuleta"
+            )
+            if (!folder.exists() && !folder.mkdirs()) throw IllegalStateException("No se pudo crear la carpeta de registro")
+            return java.io.File(folder, "pixel_ruleta_demo_$digest.dat")
         }
 
         private fun readCount(): String {
-            if (android.os.Build.VERSION.SDK_INT < 29) return "-1"
+            if (!hasDemoStorageAccess()) return "-1"
             return try {
-                val collection = MediaStore.Downloads.EXTERNAL_CONTENT_URI
-                val selection = "${MediaStore.MediaColumns.DISPLAY_NAME}=?"
-                contentResolver.query(collection, arrayOf(MediaStore.MediaColumns._ID), selection,
-                    arrayOf(recordName()), "${MediaStore.MediaColumns.DATE_ADDED} DESC")?.use { cursor ->
-                    if (!cursor.moveToFirst()) "0" else {
-                        val uri = android.content.ContentUris.withAppendedId(collection,
-                            cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID)))
-                        contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText().trim() } ?: "-1"
-                    }
-                } ?: "-1"
+                val file = recordFile()
+                if (!file.exists()) "0" else file.readText(Charsets.UTF_8).trim().toIntOrNull()
+                    ?.coerceIn(0, 1000000000)?.toString() ?: "-1"
             } catch (_: Exception) { "-1" }
         }
 
         private fun writeCount(value: String): Boolean {
-            if (android.os.Build.VERSION.SDK_INT < 29) return false
+            if (!hasDemoStorageAccess()) return false
             val count = value.toIntOrNull()?.coerceIn(0, 1000000000) ?: return false
             return try {
-                val collection = MediaStore.Downloads.EXTERNAL_CONTENT_URI
-                val selection = "${MediaStore.MediaColumns.DISPLAY_NAME}=?"
-                val args = arrayOf(recordName())
-                val existing = contentResolver.query(collection, arrayOf(MediaStore.MediaColumns._ID), selection, args,
-                    "${MediaStore.MediaColumns.DATE_ADDED} DESC")?.use { cursor ->
-                    if (cursor.moveToFirst()) android.content.ContentUris.withAppendedId(collection, cursor.getLong(0)) else null
-                }
-                val uri = existing ?: contentResolver.insert(collection, android.content.ContentValues().apply {
-                    put(MediaStore.MediaColumns.DISPLAY_NAME, recordName())
-                    put(MediaStore.MediaColumns.MIME_TYPE, "application/octet-stream")
-                    put(MediaStore.MediaColumns.RELATIVE_PATH, "Download/PixelRuleta/")
-                    put(MediaStore.MediaColumns.IS_PENDING, 0)
-                }) ?: return false
-                contentResolver.openOutputStream(uri, if (existing == null) "w" else "wt")?.use {
-                    it.write(count.toString().toByteArray(Charsets.UTF_8))
-                    it.flush()
-                } ?: return false
-                true
+                val file = recordFile()
+                val temp = java.io.File(file.parentFile, file.name + ".tmp")
+                temp.writeText(count.toString(), Charsets.UTF_8)
+                if (file.exists() && !file.delete()) return false
+                temp.renameTo(file)
             } catch (_: Exception) { false }
         }
 
-        @JavascriptInterface
-        fun getDemoSpins(callbackId: String) {
-            val result = readCount()
+        private fun deliver(callbackId: String, value: String) {
             runOnUiThread {
-                webView.evaluateJavascript("window.__pixelDemoStorageResult('$callbackId', ${org.json.JSONObject.quote(result)})", null)
+                if (::webView.isInitialized) {
+                    webView.evaluateJavascript(
+                        "window.__pixelDemoStorageResult(${org.json.JSONObject.quote(callbackId)}, ${org.json.JSONObject.quote(value)})",
+                        null
+                    )
+                }
             }
         }
 
         @JavascriptInterface
+        fun getDemoSpins(callbackId: String) {
+            demoIo.execute { deliver(callbackId, readCount()) }
+        }
+
+        @JavascriptInterface
         fun setDemoSpins(value: String, callbackId: String) {
-            val ok = writeCount(value)
+            demoIo.execute { deliver(callbackId, writeCount(value).toString()) }
+        }
+
+        @JavascriptInterface
+        fun requestDemoStorageAccess(callbackId: String) {
             runOnUiThread {
-                webView.evaluateJavascript("window.__pixelDemoStorageResult('$callbackId', $ok)", null)
+                if (hasDemoStorageAccess()) {
+                    deliver(callbackId, "true")
+                    return@runOnUiThread
+                }
+                pendingPermissionCallback = callbackId
+                if (android.os.Build.VERSION.SDK_INT >= 30) {
+                    try {
+                        val intent = Intent(
+                            Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+                            Uri.parse("package:$packageName")
+                        )
+                        startActivity(intent)
+                    } catch (_: Exception) {
+                        pendingPermissionCallback = null
+                        deliver(callbackId, "false")
+                    }
+                } else {
+                    androidx.core.app.ActivityCompat.requestPermissions(
+                        this@MainActivity,
+                        arrayOf(android.Manifest.permission.WRITE_EXTERNAL_STORAGE),
+                        7401
+                    )
+                }
             }
         }
     }
@@ -154,6 +189,38 @@ class MainActivity : ComponentActivity() {
                 // La ruleta funciona como tótem/kiosco: el botón Atrás no cierra la aplicación.
             }
         })
+    }
+
+    override fun onResume() {
+        super.onResume()
+        val callback = pendingPermissionCallback
+        if (callback != null) {
+            pendingPermissionCallback = null
+            val granted = hasDemoStorageAccess()
+            if (::webView.isInitialized) {
+                webView.postDelayed({
+                    webView.evaluateJavascript(
+                        "window.__pixelDemoStorageResult(${org.json.JSONObject.quote(callback)}, ${org.json.JSONObject.quote(granted.toString())})",
+                        null
+                    )
+                }, 250)
+            }
+        }
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == 7401) {
+            val callback = pendingPermissionCallback ?: return
+            pendingPermissionCallback = null
+            val granted = grantResults.isNotEmpty() && grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED
+            if (::webView.isInitialized) {
+                webView.evaluateJavascript(
+                    "window.__pixelDemoStorageResult(${org.json.JSONObject.quote(callback)}, ${org.json.JSONObject.quote(granted.toString())})",
+                    null
+                )
+            }
+        }
     }
 
     @Suppress("DEPRECATION")

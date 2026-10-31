@@ -1772,6 +1772,7 @@
     const licenseWhatsApp = document.getElementById("licenseWhatsApp");
     let commercialLicenseValid = false;
     let licenseCheckComplete = false;
+    let demoStorageReady = false;
 
     // El contador nativo se consulta una sola vez al iniciar. Nunca se consulta ni se
     // escribe almacenamiento durante el gesto o el primer frame de la animación.
@@ -1794,6 +1795,7 @@
         demoStorageCallbacks.set(id, resolve);
         try {
           if (method === "getDemoSpins") window.PixelDemoStorage.getDemoSpins(id);
+          else if (method === "requestDemoStorageAccess") window.PixelDemoStorage.requestDemoStorageAccess(id);
           else window.PixelDemoStorage.setDemoSpins(String(value), id);
         } catch (_) { demoStorageCallbacks.delete(id); resolve(null); }
       });
@@ -1872,35 +1874,58 @@
       } catch (_) { return false; }
     }
     async function initializeLicense() {
-      // Cargar el contador persistente en segundo plano antes de habilitar la ruleta.
-      try {
-        const storedRaw = await callDemoStorage("getDemoSpins");
-        const stored = Number.parseInt(storedRaw, 10);
-        if (Number.isSafeInteger(stored) && stored >= 0) demoSpinsCached = Math.max(demoSpinsCached, Math.min(1000000000, stored));
-        localStorage.setItem(__kSp, String(demoSpinsCached));
-      } catch (_) {}
       try { commercialLicenseValid = await verifySignedLicense(localStorage.getItem(LICENSE_KEY)); }
       catch (_) { commercialLicenseValid = false; }
+
+      if (!commercialLicenseValid) {
+        // En Android, exigir el permiso especial antes de habilitar la demo.
+        // El registro se conserva en Download/PixelRuleta, fuera de los datos de la app.
+        try {
+          const permission = await callDemoStorage("requestDemoStorageAccess");
+          if (permission !== "true") {
+            licenseCheckComplete = true;
+            demoStorageReady = false;
+            showCustomNotice("Para iniciar la prueba de 10 tiradas, habilitá el permiso de acceso a archivos para guardar el registro del dispositivo.");
+            return;
+          }
+          const storedRaw = await callDemoStorage("getDemoSpins");
+          const stored = Number.parseInt(storedRaw, 10);
+          if (!Number.isSafeInteger(stored) || stored < 0) throw new Error("No se pudo leer el registro");
+          demoSpinsCached = Math.max(demoSpinsCached, Math.min(1000000000, stored));
+          localStorage.setItem(__kSp, String(demoSpinsCached));
+          demoStorageReady = true;
+        } catch (_) {
+          licenseCheckComplete = true;
+          demoStorageReady = false;
+          showCustomNotice("No se pudo verificar el registro de prueba. Revisá el permiso de archivos y reiniciá la aplicación.");
+          return;
+        }
+      }
+
       licenseCheckComplete = true;
       if (!commercialLicenseValid && __nSp() >= __dL) showLicenseModal();
     }
     function __pSp() {
       if (!licenseCheckComplete) return false;
       if (isCommercialActivated()) return true;
+      if (!demoStorageReady) {
+        showCustomNotice("La prueba requiere habilitar el permiso de almacenamiento de Android.");
+        return false;
+      }
       if (__nSp() >= __dL) { showLicenseModal(); return false; }
       return true;
     }
     function __rSp() {
       if (!licenseCheckComplete) return false;
       if (isCommercialActivated()) return true;
+      if (!demoStorageReady) { showCustomNotice("La prueba requiere habilitar el permiso de almacenamiento de Android."); return false; }
       const current = __nSp();
       if (current >= __dL) { showLicenseModal(); return false; }
-      // Reservar la tirada en memoria/localStorage de inmediato; persistencia nativa
-      // asíncrona, sin bloquear el inicio de la animación.
+      // Actualizar memoria al instante y escribir en almacenamiento compartido en segundo plano.
       demoSpinsCached = current + 1;
       try { localStorage.setItem(__kSp, String(demoSpinsCached)); } catch (_) {}
       callDemoStorage("setDemoSpins", demoSpinsCached).then((saved) => {
-        if (saved === false) console.warn("No se pudo actualizar el registro compartido de demo.");
+        if (saved !== "true") console.warn("No se pudo actualizar el registro compartido de demo.");
       });
       return true;
     }
