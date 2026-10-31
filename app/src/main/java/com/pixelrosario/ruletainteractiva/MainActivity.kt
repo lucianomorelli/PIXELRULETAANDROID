@@ -13,6 +13,8 @@ import android.view.WindowManager
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.webkit.WebChromeClient
+import android.webkit.ValueCallback
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.ComponentActivity
 import androidx.webkit.WebViewAssetLoader
@@ -27,6 +29,8 @@ class MainActivity : ComponentActivity() {
      */
     private val demoIo = java.util.concurrent.Executors.newSingleThreadExecutor()
     private var pendingPermissionCallback: String? = null
+    private var fileChooserCallback: ValueCallback<Array<Uri>>? = null
+    private val fileChooserRequestCode = 7402
 
     private fun hasDemoStorageAccess(): Boolean {
         return if (android.os.Build.VERSION.SDK_INT >= 30) {
@@ -51,6 +55,51 @@ class MainActivity : ComponentActivity() {
             )
             if (!folder.exists() && !folder.mkdirs()) throw IllegalStateException("No se pudo crear la carpeta de registro")
             return java.io.File(folder, "pixel_ruleta_demo_$digest.dat")
+        }
+
+        private fun stableMachineId(): String {
+            val androidId = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)
+                ?: throw IllegalStateException("No se pudo obtener el identificador Android")
+            val digest = java.security.MessageDigest.getInstance("SHA-256")
+                .digest((packageName + ":" + androidId).toByteArray(Charsets.UTF_8))
+                .joinToString("") { "%02X".format(it) }
+            return "RUL-" + digest.take(32)
+        }
+
+        private fun licenseFile(): java.io.File {
+            val folder = java.io.File(
+                android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS),
+                "PixelRuleta"
+            )
+            if (!folder.exists() && !folder.mkdirs()) throw IllegalStateException("No se pudo crear la carpeta de registro")
+            val androidId = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID) ?: "unknown"
+            val digest = java.security.MessageDigest.getInstance("SHA-256")
+                .digest((packageName + ":" + androidId).toByteArray(Charsets.UTF_8))
+                .joinToString("") { "%02x".format(it) }
+            return java.io.File(folder, "pixel_ruleta_license_$digest.dat")
+        }
+
+        @JavascriptInterface
+        fun getPersistentMachineId(): String {
+            return try { stableMachineId() } catch (_: Exception) { "" }
+        }
+
+        @JavascriptInterface
+        fun getStoredLicense(): String {
+            if (!hasDemoStorageAccess()) return ""
+            return try { licenseFile().takeIf { it.exists() }?.readText(Charsets.UTF_8)?.trim().orEmpty() } catch (_: Exception) { "" }
+        }
+
+        @JavascriptInterface
+        fun saveStoredLicense(token: String): Boolean {
+            if (!hasDemoStorageAccess() || token.length > 8192) return false
+            return try {
+                val file = licenseFile()
+                val temp = java.io.File(file.parentFile, file.name + ".tmp")
+                temp.writeText(token, Charsets.UTF_8)
+                if (file.exists() && !file.delete()) return false
+                temp.renameTo(file)
+            } catch (_: Exception) { false }
         }
 
         private fun readCount(): String {
@@ -155,7 +204,7 @@ class MainActivity : ComponentActivity() {
             domStorageEnabled = true
             databaseEnabled = true
             allowFileAccess = false
-            allowContentAccess = false
+            allowContentAccess = true
             javaScriptCanOpenWindowsAutomatically = false
             setSupportMultipleWindows(false)
             builtInZoomControls = false
@@ -164,6 +213,31 @@ class MainActivity : ComponentActivity() {
             loadWithOverviewMode = true
             mediaPlaybackRequiresUserGesture = true
             setGeolocationEnabled(false)
+        }
+
+        webView.webChromeClient = object : WebChromeClient() {
+            override fun onShowFileChooser(
+                webView: WebView?,
+                filePathCallback: ValueCallback<Array<Uri>>?,
+                fileChooserParams: FileChooserParams?
+            ): Boolean {
+                fileChooserCallback?.onReceiveValue(null)
+                fileChooserCallback = filePathCallback
+                return try {
+                    val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                        addCategory(Intent.CATEGORY_OPENABLE)
+                        type = "image/*"
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
+                    }
+                    startActivityForResult(Intent.createChooser(intent, "Seleccionar imagen"), fileChooserRequestCode)
+                    true
+                } catch (_: Exception) {
+                    fileChooserCallback?.onReceiveValue(null)
+                    fileChooserCallback = null
+                    false
+                }
+            }
         }
 
         webView.webViewClient = object : WebViewClient() {
@@ -191,6 +265,20 @@ class MainActivity : ComponentActivity() {
         })
     }
 
+    @Deprecated("Deprecated in Android API")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == fileChooserRequestCode) {
+            val callback = fileChooserCallback ?: return
+            fileChooserCallback = null
+            val result = if (resultCode == RESULT_OK) {
+                val uri = data?.data
+                if (uri != null) arrayOf(uri) else null
+            } else null
+            callback.onReceiveValue(result)
+        }
+    }
+
     override fun onResume() {
         super.onResume()
         val callback = pendingPermissionCallback
@@ -215,10 +303,13 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        fileChooserCallback?.onReceiveValue(null)
+        fileChooserCallback = null
         if (::webView.isInitialized) {
             webView.stopLoading()
             webView.destroy()
         }
+        demoIo.shutdown()
         super.onDestroy()
     }
 }
