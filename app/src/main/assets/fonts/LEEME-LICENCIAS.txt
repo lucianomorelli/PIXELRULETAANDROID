@@ -1,0 +1,35 @@
+Fuentes tipográficas incluidas en esta compilación.
+
+Las fuentes se distribuyen bajo sus respectivas licencias libres (principalmente SIL Open Font License, GNU GPL con excepción de fuentes, o licencias URW/ADF). Se conservan los archivos originales de las familias incluidas.
+
+Familias: 
+01. Lobster Two · manuscrita
+02. Comic Neue · informal
+03. Purisa · a mano
+04. Loma · cursiva
+05. Kinnari · cursiva
+06. Norasi · cursiva
+07. Laksaman · cursiva
+08. Sawasdee · cursiva gruesa
+09. Garuda · negrita
+10. Umpush · redondeada
+11. GFS Didot · elegante
+12. EB Garamond · clásica
+13. GFS Baskerville · editorial
+14. Noto Serif Display · alto contraste
+15. Accanthis ADF · clásica
+16. Berenis ADF · antigua
+17. URW Bookman · display
+18. Charis SIL · humanista
+19. Gentium Book Plus · libro
+20. Comfortaa · geométrica
+21. Cabin · moderna
+22. Inter Black · impacto
+23. Lato Heavy · gruesa
+24. DejaVu Condensed · compacta
+25. Nimbus Sans Narrow · cartel
+26. URW Gothic · geométrica
+27. DejaVu Sans Mono · máquina
+28. FreeMono · técnica
+29. Nimbus Roman · romana
+30. FreeSerif · tradicional
