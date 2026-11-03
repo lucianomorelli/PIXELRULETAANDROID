@@ -1,9 +1,14 @@
 <!DOCTYPE html>
-<html lang="es"><head>
+<html lang="es" class="pr-loading"><head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
   <title>Ruleta Tótem Kiosk - Casino Plata</title>
   <style>
+    /* Evita mostrar el primer render con medidas provisorias. */
+    html.pr-loading body {
+      visibility: hidden !important;
+    }
+
     * {
       box-sizing: border-box;
       user-select: none;
@@ -3637,6 +3642,21 @@
       resizeCanvas();
       applyStyles();
       animationLoop(0);
+
+      // Mostrar la interfaz solo cuando el viewport, los estilos y las
+      // tipografías hayan terminado de calcularse en el tamaño real del WebView.
+      const revealRuleta = () => {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            document.documentElement.classList.remove("pr-loading");
+          });
+        });
+      };
+      if (document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(revealRuleta).catch(revealRuleta);
+      } else {
+        revealRuleta();
+      }
     };
     
     // Bloqueo automatico de herramientas de desarrollador

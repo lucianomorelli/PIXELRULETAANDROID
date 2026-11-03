@@ -192,6 +192,9 @@ class MainActivity : ComponentActivity() {
         enterKioskMode()
 
         webView = WebView(this)
+        // Evita mostrar el primer render mientras el HTML y las fuentes calculan
+        // sus dimensiones definitivas.
+        webView.visibility = View.INVISIBLE
         webView.addJavascriptInterface(DemoStorageBridge(), "PixelDemoStorage")
         setContentView(webView)
 
@@ -263,6 +266,27 @@ class MainActivity : ComponentActivity() {
         }
 
         webView.webViewClient = object : WebViewClient() {
+            override fun onPageFinished(view: WebView?, url: String?) {
+                super.onPageFinished(view, url)
+                // Espera fuentes web y dos cuadros de renderizado antes de mostrar.
+                val waitForLayout = """
+                    (function() {
+                      var ready = (document.fonts && document.fonts.ready)
+                        ? document.fonts.ready : Promise.resolve();
+                      ready.then(function() {
+                        requestAnimationFrame(function() {
+                          requestAnimationFrame(function() { return true; });
+                        });
+                      });
+                    })();
+                """.trimIndent()
+                webView.evaluateJavascript(waitForLayout) {
+                    webView.post {
+                        webView.visibility = View.VISIBLE
+                    }
+                }
+            }
+
             override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?) =
                 request?.url?.let { assetLoader.shouldInterceptRequest(it) }
 
