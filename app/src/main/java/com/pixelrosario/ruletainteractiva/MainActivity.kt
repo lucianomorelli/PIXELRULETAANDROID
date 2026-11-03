@@ -209,8 +209,10 @@ class MainActivity : ComponentActivity() {
             setSupportMultipleWindows(false)
             builtInZoomControls = false
             displayZoomControls = false
-            useWideViewPort = true
-            loadWithOverviewMode = true
+            // El HTML ya define viewport=device-width. Evitar el modo overview
+            // previene el zoom inicial y el reajuste visible al terminar de cargar.
+            useWideViewPort = false
+            loadWithOverviewMode = false
             mediaPlaybackRequiresUserGesture = true
             setGeolocationEnabled(false)
         }
