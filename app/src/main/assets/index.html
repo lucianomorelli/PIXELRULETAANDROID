@@ -926,9 +926,15 @@
       white-space:normal; line-height:1.4; text-align:center; touch-action:pan-y;
     }
     #copyLicenseIdBtn {
-      display:inline-block; margin-top:9px; padding:7px 13px; border:1px solid #38bdf8;
-      border-radius:7px; background:#13243a; color:#e0f2fe; font-size:13px; font-weight:700;
+      display:block !important; visibility:visible !important; opacity:1 !important;
+      width:100%; margin:10px auto 0; padding:10px 14px;
+      border:1px solid rgba(224,190,119,.65); border-radius:10px;
+      background:linear-gradient(180deg,#3b4659,#263246); color:#fff;
+      font-size:14px; font-weight:700; cursor:pointer; position:relative; z-index:5;
+      -webkit-appearance:none; appearance:none; touch-action:manipulation;
     }
+    .license-machine #copyLicenseIdBtn { display:block !important; }
+    .license-machine #licenseMachineId { display:block !important; visibility:visible !important; }
     #licenseKeyInput {
       width:100%; padding:13px; margin-bottom:10px; border-radius:8px; border:1px solid #475569;
       background:#080b12; color:#fff; font-size:15px; text-align:center; box-sizing:border-box;
@@ -1025,18 +1031,17 @@
 
     /* ===== Botones de selección de imagen ===== */
     #logoFileInput.pr-file-hidden, #backgroundFileInput.pr-file-hidden { position:absolute !important; width:1px !important; height:1px !important; opacity:0 !important; padding:0 !important; margin:0 !important; border:0 !important; overflow:hidden; pointer-events:none; }
-    .pr-pick { display:flex; align-items:center; gap:14px; width:100%; margin-top:8px; padding:14px 16px; border-radius:16px; cursor:pointer; color:#704900;
-      border:1px solid rgba(255,224,130,.95); background:linear-gradient(180deg,#fff59d 0%,#ffdf45 52%,#ffc928 100%);
-      box-shadow:0 7px 18px rgba(255,193,7,.30), inset 0 2px 0 rgba(255,255,255,.8), inset 0 -2px 0 rgba(180,120,0,.16); transition:transform .15s ease, filter .15s ease; position:relative; overflow:hidden; touch-action:manipulation; }
-    .pr-pick-bg { color:#704900; background:linear-gradient(180deg,#fff59d 0%,#ffdf45 52%,#ffc928 100%); box-shadow:0 7px 18px rgba(255,193,7,.30), inset 0 2px 0 rgba(255,255,255,.8), inset 0 -2px 0 rgba(180,120,0,.16); }
-    .pr-pick::after { content:""; position:absolute; top:0; left:-60%; width:40%; height:100%; background:linear-gradient(100deg,transparent,rgba(255,255,255,.28),transparent); transform:skewX(-20deg); animation:prPickShine 3.2s ease-in-out infinite; }
-    @keyframes prPickShine { 0%,60% { left:-60%; } 100% { left:130%; } }
-    .pr-pick:active { transform:scale(.97); filter:brightness(1.12); }
-    .pr-pick-ico { font-size:1.9rem; line-height:1; filter:drop-shadow(0 3px 6px rgba(0,0,0,.4)); }
+    .pr-pick { display:flex; align-items:center; gap:12px; width:100%; margin-top:8px; padding:12px 15px; border-radius:11px; cursor:pointer; color:#f3e7c5;
+      border:1px solid rgba(224,190,119,.48); background:linear-gradient(180deg,rgba(52,48,39,.96),rgba(29,31,36,.98));
+      box-shadow:0 3px 10px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.08); transition:background .15s ease,border-color .15s ease,transform .15s ease; position:relative; overflow:hidden; touch-action:manipulation; }
+    .pr-pick-bg { color:#e8edf5; border-color:rgba(148,163,184,.42); background:linear-gradient(180deg,rgba(48,57,70,.96),rgba(29,36,47,.98)); box-shadow:0 3px 10px rgba(0,0,0,.2),inset 0 1px 0 rgba(255,255,255,.07); }
+    .pr-pick::after { content:none; }
+    .pr-pick:active { transform:scale(.985); filter:brightness(1.12); }
+    .pr-pick-ico { font-size:1.35rem; line-height:1; filter:none; opacity:.9; }
     .pr-pick-txt { display:flex; flex-direction:column; gap:2px; min-width:0; flex:1; }
-    .pr-pick-txt b { font-size:1.05rem; font-weight:900; letter-spacing:.4px; }
-    .pr-pick-txt small { font-size:.78rem; opacity:.9; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .pr-pick-go { color:#704900; background:rgba(255,255,255,.42); border-color:rgba(160,105,0,.28); width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:1.3rem; font-weight:900; background:rgba(255,255,255,.22); border:1px solid rgba(255,255,255,.4); flex:0 0 auto; }
+    .pr-pick-txt b { font-size:.96rem; font-weight:700; letter-spacing:.15px; }
+    .pr-pick-txt small { font-size:.74rem; opacity:.72; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .pr-pick-go { color:#f1dfb7; background:rgba(255,255,255,.07); border-color:rgba(224,190,119,.28); width:30px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:1.3rem; font-weight:900; background:rgba(255,255,255,.22); border:1px solid rgba(255,255,255,.4); flex:0 0 auto; }
 
     /* ===== Botón Aceptar del horario ===== */
     #serviceHoursApply { min-width:110px; padding:0 18px; font-weight:900; letter-spacing:.4px; color:#fff; border:1px solid rgba(255,255,255,.3); border-radius:12px;
@@ -1317,8 +1322,10 @@
       <div class="pr-lic-left" id="prLicLeftInline"></div>
       <div class="license-machine">
         <small>NÚMERO DE SERIE DE ESTE EQUIPO</small>
-        <strong id="licenseMachineId">---</strong>
-        <button type="button" id="copyLicenseIdBtn">Copiar número de serie</button>
+      </div>
+      <div id="licenseIdActions" style="display:block !important; visibility:visible !important; opacity:1 !important; width:100%; margin:-5px 0 14px; padding:10px 12px; box-sizing:border-box; text-align:center; position:relative; z-index:20; background:#10243a; border:1px solid #38536d; border-radius:12px;">
+        <strong id="licenseMachineId" style="display:block !important; visibility:visible !important; color:#86efac; font-size:clamp(13px,3.8vw,18px); font-weight:800; line-height:1.35; overflow-wrap:anywhere; word-break:break-all; margin:0 0 9px;">---</strong>
+        <button type="button" id="copyLicenseIdBtn" style="display:block !important; visibility:visible !important; opacity:1 !important; width:100%; min-height:42px; padding:10px 14px; margin:0; border:1px solid #718096; border-radius:10px; background:linear-gradient(180deg,#3b4659,#263246); color:#fff; font-size:15px; font-weight:700; cursor:pointer; position:relative; z-index:21; -webkit-appearance:none; appearance:none; touch-action:manipulation;">Copiar código</button>
       </div>
       <input id="licenseKeyInput" type="text" autocomplete="off" spellcheck="false" placeholder="Pegá aquí tu código de activación">
       <button class="license-action ghost" id="licensePasteBtn" type="button">Pegar código</button>
@@ -2147,7 +2154,13 @@
       if (window.__prExpired && !commercialLicenseValid) { __t.textContent = "Licencia vencida"; __m.textContent = "El tiempo de tu licencia terminó. Solicitá una clave nueva para seguir usando la ruleta."; }
       const __ft = document.getElementById("licenseFoot"); if (__ft) __ft.style.display = commercialLicenseValid ? "none" : "block";
       const id = getMachineId();
-      licenseMachineId.textContent = id;
+      licenseMachineId.textContent = id || "ID no disponible";
+      const copyIdControl = document.getElementById("copyLicenseIdBtn");
+      if (copyIdControl) {
+        copyIdControl.textContent = "Copiar código";
+        copyIdControl.style.setProperty("display", "block", "important");
+        copyIdControl.style.setProperty("visibility", "visible", "important");
+      }
       licenseWhatsApp.href = "https://wa.me/" + LICENSE_WHATSAPP + "?text=" + encodeURIComponent("Hola Pixel Rosario, quiero activar la Ruleta Virtual. Mi número de serie es: " + id);
       licenseOverlay.classList.add("active");
     }
@@ -2178,9 +2191,9 @@
             document.execCommand("copy");
             helper.remove();
           }
-          copyLicenseIdBtn.textContent = "ID copiado";
+          copyLicenseIdBtn.textContent = "Código copiado";
         } catch (_) {
-          copyLicenseIdBtn.textContent = "Mantené presionado el ID para copiar";
+          copyLicenseIdBtn.textContent = "Mantené presionado el código para copiar";
         }
       });
     }
@@ -3066,9 +3079,9 @@
       pointerBlade.classList.remove("bump-left", "bump-right");
       void pointerBlade.offsetWidth;
       if (dir >= 0) {
-        pointerBlade.classList.add("bump-right");
-      } else {
         pointerBlade.classList.add("bump-left");
+      } else {
+        pointerBlade.classList.add("bump-right");
       }
       setTimeout(() => {
         pointerBlade.classList.remove("bump-left", "bump-right");
